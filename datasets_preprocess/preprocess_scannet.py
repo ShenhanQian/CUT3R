@@ -1,21 +1,12 @@
 import argparse
-import random
-import gzip
-import json
 import os
 import os.path as osp
 
-import torch
-import PIL.Image
 from PIL import Image
 import numpy as np
 import cv2
 import multiprocessing
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-import shutil
-import path_to_root  # noqa
-import datasets_preprocess.utils.cropping as cropping  # noqa
 
 
 def get_parser():
@@ -49,7 +40,8 @@ def process_scene(args):
     os.makedirs(out_rgb_dir, exist_ok=True)
     os.makedirs(out_depth_dir, exist_ok=True)
     os.makedirs(out_cam_dir, exist_ok=True)
-    for i in tqdm(range(frame_num)):
+    tqdm.write(f"[Scene] {scene}")
+    for i in range(frame_num):
         rgb_path = osp.join(rgb_dir, f"{i}.jpg")
         depth_path = osp.join(depth_dir, f"{i}.png")
         pose_path = osp.join(pose_dir, f"{i}.txt")
@@ -71,7 +63,7 @@ def process_scene(args):
 
 def main(rootdir, outdir):
     os.makedirs(outdir, exist_ok=True)
-    splits = ["scans_test", "scans_train"]
+    splits = ["scans_test", "scans"]
     pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
 
     for split in splits:
@@ -80,7 +72,12 @@ def main(rootdir, outdir):
             for f in os.listdir(os.path.join(rootdir, split))
             if os.path.isdir(osp.join(rootdir, split, f))
         ]
-        pool.map(process_scene, [(rootdir, outdir, split, scene) for scene in scenes])
+        # Use tqdm to show progress over scenes
+        list(tqdm(
+            pool.imap_unordered(process_scene, [(rootdir, outdir, split, scene) for scene in scenes]),
+            total=len(scenes),
+            desc=f"[Split] {split}"
+        ))
     pool.close()
     pool.join()
 

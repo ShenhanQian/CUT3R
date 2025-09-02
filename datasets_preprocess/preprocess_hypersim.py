@@ -14,12 +14,8 @@ Usage:
 
 import argparse
 import os
-import shutil
-import time
 
-import cv2
 import h5py
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from PIL import Image
@@ -155,7 +151,7 @@ def process_scene(args):
         valid_camera_positions = camera_positions[exist_frame_ids]
         valid_camera_orientations = camera_orientations[exist_frame_ids]
 
-        for i, (rgb, depth) in enumerate(tqdm(zip(rgbs, depths), total=len(rgbs))):
+        for i, (rgb, depth) in enumerate(tqdm(zip(rgbs, depths), total=len(rgbs), desc="Processing HyperSim frames")):
             frame_id = int(rgb.split(".")[1])
             assert frame_id == int(
                 depth.split(".")[1]
@@ -260,7 +256,7 @@ def main():
         [f for f in os.listdir(rootdir) if os.path.isdir(os.path.join(rootdir, f))]
     )
     # Process each scene sequentially (or use multiprocessing if desired)
-    for scene in scenes:
+    for scene in tqdm(scenes, desc="Processing HyperSim scenes"):
         process_scene((rootdir, outdir, scene))
 
 
