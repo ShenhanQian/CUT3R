@@ -108,7 +108,7 @@ def process_scene(args):
     # Tone mapping parameters.
     gamma = 1.0 / 2.2  # Standard gamma correction exponent.
     inv_gamma = 1.0 / gamma
-    percentile = 90  # Desired percentile brightness in the unmodified image.
+    percentile = np.array(90)  # Desired percentile brightness in the unmodified image.
     brightness_nth_percentile_desired = 0.8  # Desired brightness after scaling.
 
     for camera_id in camera_ids:
@@ -151,7 +151,8 @@ def process_scene(args):
         valid_camera_positions = camera_positions[exist_frame_ids]
         valid_camera_orientations = camera_orientations[exist_frame_ids]
 
-        for i, (rgb, depth) in enumerate(tqdm(zip(rgbs, depths), total=len(rgbs), desc="Processing HyperSim frames")):
+        for i, (rgb, depth) in enumerate(tqdm(zip(rgbs, depths), total=len(rgbs), desc="Frames", leave=False)):
+            tqdm.write(f"Camera: {camera_id} Frame: {rgb}")
             frame_id = int(rgb.split(".")[1])
             assert frame_id == int(
                 depth.split(".")[1]
@@ -215,9 +216,7 @@ def process_scene(args):
                 )
                 brightness_valid = brightness[valid_mask]
                 eps = 0.0001  # Avoid division by zero.
-                brightness_nth_percentile_current = np.percentile(
-                    brightness_valid, percentile
-                )
+                brightness_nth_percentile_current = np.percentile(brightness_valid, percentile)
                 if brightness_nth_percentile_current < eps:
                     scale = 0.0
                 else:
@@ -256,7 +255,8 @@ def main():
         [f for f in os.listdir(rootdir) if os.path.isdir(os.path.join(rootdir, f))]
     )
     # Process each scene sequentially (or use multiprocessing if desired)
-    for scene in tqdm(scenes, desc="Processing HyperSim scenes"):
+    for scene in tqdm(scenes, desc="Scenes"):
+        tqdm.write(f"Processing scene: {scene}")
         process_scene((rootdir, outdir, scene))
 
 

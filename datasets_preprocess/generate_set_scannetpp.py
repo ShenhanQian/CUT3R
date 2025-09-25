@@ -39,6 +39,8 @@ def get_timestamp(img_name):
     """
     if img_name.startswith("DSC"):
         return int(img_name[3:])
+    elif "_DSC" in img_name:
+        return int(img_name.split("_DSC")[1])
     else:
         return int(img_name.split("_")[1])
 
@@ -54,6 +56,12 @@ def process_scene(root, scene, max_interval):
         max_interval (int): Maximum allowed difference (in timestamp units) for video grouping.
     """
     scene_dir = osp.join(root, scene)
+    out_path = osp.join(scene_dir, "new_scene_metadata.npz")
+    if os.path.exists(out_path):
+        print(f"Skipping {scene}, already processed.")
+        return
+    print(f"Processing {scene}")
+
     metadata_path = osp.join(scene_dir, "scene_metadata.npz")
     with np.load(metadata_path, allow_pickle=True) as data:
         images = data["images"]
@@ -108,7 +116,6 @@ def process_scene(root, scene, max_interval):
             video_collection[i].append(j)
 
     # Save the updated metadata to a new file.
-    out_path = osp.join(scene_dir, "new_scene_metadata.npz")
     np.savez(
         out_path,
         images=images,
@@ -118,8 +125,6 @@ def process_scene(root, scene, max_interval):
         image_collection=image_collection,
         video_collection=video_collection,
     )
-    print(f"Processed scene: {scene}")
-
 
 def main(args):
     root = args.root

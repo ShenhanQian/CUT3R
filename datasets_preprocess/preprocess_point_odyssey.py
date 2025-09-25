@@ -5,8 +5,7 @@ Preprocess Script for Point Odyssey Dataset
 This script processes the Point Odyssey dataset by:
   - Copying RGB images.
   - Converting 16-bit depth images to a normalized float32 depth map.
-  - Inverting camera extrinsic matrices to obtain poses.
-  - Saving intrinsics and computed poses in a structured output directory.
+  - Converting annotation files from .npz to .h5 format for faster access.
 
 The dataset is expected to have subdirectories for each split (e.g., train, test, val),
 with each split containing multiple sequence directories. Each sequence directory must
@@ -25,55 +24,64 @@ import shutil
 import numpy as np
 import cv2
 from tqdm import tqdm
+import h5py
 
 
 def process_sequence(seq_dir, out_seq_dir):
     """
     Process a single sequence:
       - Verifies that required folders/files exist.
-      - Loads camera annotations.
       - Processes each frame: copies the RGB image, processes the depth map,
-        computes the camera pose, and saves the results.
+        convert anno.npz into anno.h5 for faster access of frames, and saves the results.
 
     Args:
         seq_dir (str): Directory of the sequence (should contain 'rgbs', 'depths', and 'anno.npz').
         out_seq_dir (str): Output directory where processed files will be saved.
     """
+    tqdm.write(f"{seq_dir}")
     # Define input subdirectories and annotation file
     img_dir = os.path.join(seq_dir, "rgbs")
     depth_dir = os.path.join(seq_dir, "depths")
-    cam_file = os.path.join(seq_dir, "anno.npz")
+    anno_file = os.path.join(seq_dir, "anno.npz")
 
     # Ensure all necessary files/folders exist
     if not (
         os.path.exists(img_dir)
         and os.path.exists(depth_dir)
-        and os.path.exists(cam_file)
+        and os.path.exists(anno_file)
     ):
         raise FileNotFoundError(f"Missing required data in {seq_dir}")
 
-    # Create output subdirectories for images, depth maps, and camera parameters
+    # Create output subdirectories for images, depth maps
     out_img_dir = os.path.join(out_seq_dir, "rgb")
     out_depth_dir = os.path.join(out_seq_dir, "depth")
-    out_cam_dir = os.path.join(out_seq_dir, "cam")
     os.makedirs(out_img_dir, exist_ok=True)
     os.makedirs(out_depth_dir, exist_ok=True)
-    os.makedirs(out_cam_dir, exist_ok=True)
 
-    # Load camera annotations
-    annotations = np.load(cam_file)
-    cam_ints = annotations["intrinsics"].astype(np.float32)
-    cam_exts = annotations["extrinsics"].astype(np.float32)
+    # convert anno.npz to anno.h5 for faster access of frames
+    annotations = np.load(anno_file)  # ['trajs_2d', 'trajs_3d', 'valids', 'visibs', 'intrinsics', 'extrinsics']
+    traj_path = os.path.join(out_seq_dir, "anno.h5")
+    if os.path.exists(traj_path):
+        return
+
+    data = {key: annotations[key] for key in annotations.files}
+    with h5py.File(traj_path, 'w') as h5f:
+        try:
+            for key, value in data.items():
+                h5f.create_dataset(key, data=value, compression="lzf", chunks=True)
+        except Exception as e:
+            print(f"Error saving {traj_path}: {e}")
+            return
 
     # List and sort image and depth filenames
     rgbs = sorted([f for f in os.listdir(img_dir) if f.endswith(".jpg")])
     depths = sorted([f for f in os.listdir(depth_dir) if f.endswith(".png")])
 
     # Ensure that the number of intrinsics, extrinsics, RGB images, and depth images match
-    if not (len(cam_ints) == len(cam_exts) == len(rgbs) == len(depths)):
+    if not (len(rgbs) == len(depths)):
         raise ValueError(
             f"Mismatch in sequence {seq_dir}: "
-            f"{len(cam_ints)} intrinsics, {len(cam_exts)} extrinsics, {len(rgbs)} images, {len(depths)} depths."
+            f"{len(rgbs)} images, {len(depths)} depths."
         )
 
     # Skip sequence if it has already been processed
@@ -81,7 +89,7 @@ def process_sequence(seq_dir, out_seq_dir):
         return
 
     # Process each frame in the sequence
-    for i in tqdm(range(len(cam_exts)), desc="Processing frames", leave=False):
+    for i in tqdm(range(len(rgbs)), desc="Processing frames", leave=False):
         # Extract frame index from filenames
         basename_img = rgbs[i].split(".")[0].split("_")[-1]
         basename_depth = depths[i].split(".")[0].split("_")[-1]
@@ -93,27 +101,15 @@ def process_sequence(seq_dir, out_seq_dir):
         img_path = os.path.join(img_dir, rgbs[i])
         depth_path = os.path.join(depth_dir, depths[i])
 
-        # Retrieve intrinsics and compute camera pose by inverting the extrinsic matrix
-        intrins = cam_ints[i]
-        cam_extrinsic = cam_exts[i]
-        pose = np.linalg.inv(cam_extrinsic)
-        if np.any(np.isinf(pose)) or np.any(np.isnan(pose)):
-            raise ValueError(
-                f"Invalid pose computed from extrinsics for frame {i} in {seq_dir}"
-            )
-
         # Read and process depth image
         depth_16bit = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH)
         depth = depth_16bit.astype(np.float32) / 65535.0 * 1000.0
 
-        # Save processed files: copy the RGB image and save depth and camera parameters
+        # Save processed files: copy the RGB image and save depth
         basename = basename_img  # or str(i)
         out_img_path = os.path.join(out_img_dir, basename + ".jpg")
         shutil.copyfile(img_path, out_img_path)
         np.save(os.path.join(out_depth_dir, basename + ".npy"), depth)
-        np.savez(
-            os.path.join(out_cam_dir, basename + ".npz"), intrinsics=intrins, pose=pose
-        )
 
 
 def process_split(split_dir, out_split_dir):
@@ -137,7 +133,7 @@ def process_split(split_dir, out_split_dir):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Preprocess Point Odyssey dataset by processing images, depth maps, and camera parameters."
+        description="Preprocess Point Odyssey dataset by processing images, depth maps, and annotations."
     )
     parser.add_argument(
         "--input_dir",

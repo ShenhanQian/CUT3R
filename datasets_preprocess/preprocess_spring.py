@@ -25,6 +25,9 @@ from PIL import Image
 import shutil
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor, as_completed
+import sys
+sys.path.append("..")
+sys.path.append("../src")
 
 # Custom modules (adapt these imports to your actual module locations)
 import flow_IO

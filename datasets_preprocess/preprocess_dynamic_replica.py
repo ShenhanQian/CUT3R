@@ -193,24 +193,30 @@ def process_split_data(args):
     # Process each sequence.
     for seq_name in tqdm(seq_annot.keys(), desc=f"Processing split '{split}'"):
         # For each camera (e.g., 'left', 'right'), create output directories.
-        for cam in ["left", "right"]:
+        # for cam in ["left", "right"]:
+        for cam in ["left"]:
             out_img_dir = osp.join(out_dir, split, seq_name, cam, "rgb")
             out_depth_dir = osp.join(out_dir, split, seq_name, cam, "depth")
             out_fflow_dir = osp.join(out_dir, split, seq_name, cam, "flow_forward")
             out_bflow_dir = osp.join(out_dir, split, seq_name, cam, "flow_backward")
+            out_traj_dir = osp.join(out_dir, split, seq_name, cam, "trajectories")
             out_cam_dir = osp.join(out_dir, split, seq_name, cam, "cam")
             os.makedirs(out_img_dir, exist_ok=True)
             os.makedirs(out_depth_dir, exist_ok=True)
             os.makedirs(out_fflow_dir, exist_ok=True)
             os.makedirs(out_bflow_dir, exist_ok=True)
+            os.makedirs(out_traj_dir, exist_ok=True)
             os.makedirs(out_cam_dir, exist_ok=True)
 
             for framedata in tqdm(
                 seq_annot[seq_name][cam], desc=f"Seq {seq_name} [{cam}]", leave=False
             ):
                 timestamp = framedata.frame_timestamp
+                basename = f"{framedata.frame_number:04d}"
                 im_path = osp.join(split_dir, framedata.image.path)
                 depth_path = osp.join(split_dir, framedata.depth.path)
+                traj_path = osp.join(split_dir, framedata.trajectories['path'])
+
                 if framedata.flow_forward["path"]:
                     flow_forward_path = osp.join(
                         split_dir, framedata.flow_forward["path"]
@@ -251,7 +257,7 @@ def process_split_data(args):
                         flow_forward_mask_path, cv2.IMREAD_UNCHANGED
                     )
                     np.savez(
-                        osp.join(out_fflow_dir, f"{timestamp}.npz"),
+                        osp.join(out_fflow_dir, f"{basename}.npz"),
                         flow=flow_forward,
                         mask=flow_forward_mask,
                     )
@@ -261,7 +267,7 @@ def process_split_data(args):
                         flow_backward_mask_path, cv2.IMREAD_UNCHANGED
                     )
                     np.savez(
-                        osp.join(out_bflow_dir, f"{timestamp}.npz"),
+                        osp.join(out_bflow_dir, f"{basename}.npz"),
                         flow=flow_backward,
                         mask=flow_backward_mask,
                     )
@@ -280,17 +286,23 @@ def process_split_data(args):
                 pose[:3, :3] = R.numpy().T
                 pose[:3, 3] = -R.numpy().T @ t.numpy()
 
-                # Define output file paths.
-                out_img_path = osp.join(out_img_dir, f"{timestamp}.png")
-                out_depth_path = osp.join(out_depth_dir, f"{timestamp}.npy")
-                out_cam_path = osp.join(out_cam_dir, f"{timestamp}.npz")
+                traj = torch.load(traj_path)
+                traj = {k: v.numpy() for k, v in traj.items() if k != 'img'}
 
+                # Define output file paths.
+                out_img_path = osp.join(out_img_dir, f"{basename}.png")
+                out_depth_path = osp.join(out_depth_dir, f"{basename}.npy")
+                out_cam_path = osp.join(out_cam_dir, f"{basename}.npz")
+                out_traj_path = osp.join(out_traj_dir, f"{basename}.npz")
+                
                 # Copy RGB image.
                 shutil.copy(im_path, out_img_path)
                 # Save depth.
                 np.save(out_depth_path, depth)
                 # Save camera metadata.
                 np.savez(out_cam_path, intrinsics=intrinsics, pose=pose)
+                # Save trajectories.
+                np.savez(out_traj_path, **traj)
     # (Optionally, you could return some summary information.)
     return None
 
@@ -330,15 +342,8 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
     tasks = [(split, args.root_dir, args.out_dir) for split in args.splits]
 
-    print("Processing splits:", args.splits)
-    with Pool(processes=args.num_processes) as pool:
-        list(
-            tqdm(
-                pool.imap(process_split_data, tasks),
-                total=len(tasks),
-                desc="Overall Progress",
-            )
-        )
+    for task in tasks:
+        process_split_data(task)
 
 
 if __name__ == "__main__":
