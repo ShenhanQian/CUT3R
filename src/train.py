@@ -85,6 +85,7 @@ def save_current_code(outdir):
         src_dir,
         dst_dir,
         ignore=shutil.ignore_patterns(
+            "*.pth",
             ".vscode*",
             "assets*",
             "example*",

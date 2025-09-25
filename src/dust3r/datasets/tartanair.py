@@ -1,8 +1,7 @@
 import os.path as osp
 import numpy as np
-import cv2
 import numpy as np
-import itertools
+from tqdm import tqdm
 import os
 import sys
 
@@ -41,7 +40,7 @@ class TartanAir_Multi(BaseMultiViewDataset):
         start_img_ids = []
         j = 0
 
-        for scene in scene_dirs:
+        for scene in tqdm(scene_dirs, desc="Loading TartanAir scenes"):
             for mode in ["Easy", "Hard"]:
                 seq_dirs = sorted(
                     [

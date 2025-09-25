@@ -2,6 +2,7 @@ import os.path as osp
 import os
 import sys
 import itertools
+from tqdm import tqdm
 
 sys.path.append(osp.join(osp.dirname(__file__), "..", ".."))
 import cv2
@@ -44,7 +45,7 @@ class HyperSim_Multi(BaseMultiViewDataset):
         start_img_ids = []
         scene_img_list = []
         j = 0
-        for scene_idx, scene in enumerate(subscenes):
+        for scene_idx, scene in tqdm(enumerate(subscenes), total=len(subscenes), desc="Loading HyperSim"):
             scene_dir = osp.join(self.ROOT, scene)
             rgb_paths = sorted([f for f in os.listdir(scene_dir) if f.endswith(".png")])
             assert len(rgb_paths) > 0, f"{scene_dir} is empty."

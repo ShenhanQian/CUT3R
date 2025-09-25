@@ -32,7 +32,7 @@ class DynamicReplica(BaseMultiViewDataset):
         start_img_ids = []
 
         j = 0
-        for scene in tqdm(self.scenes):
+        for scene in tqdm(self.scenes, desc="Loading DynamicReplica"):
             scene_dir = osp.join(self.ROOT, self.split, scene, "left")
             rgb_dir = osp.join(scene_dir, "rgb")
             basenames = sorted(

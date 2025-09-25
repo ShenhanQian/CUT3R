@@ -1,7 +1,7 @@
 import os.path as osp
 import cv2
 import numpy as np
-import itertools
+from tqdm import tqdm
 import os
 import sys
 
@@ -34,7 +34,7 @@ class ScanNetpp_Multi(BaseMultiViewDataset):
         id_ranges = []
         j = 0
         self.image_num = 0
-        for scene in self.scenes:
+        for scene in tqdm(self.scenes, desc="Loading ScanNet++ scenes"):
             scene_dir = osp.join(self.ROOT, scene)
             with np.load(
                 osp.join(scene_dir, "new_scene_metadata.npz"), allow_pickle=True
@@ -50,7 +50,7 @@ class ScanNetpp_Multi(BaseMultiViewDataset):
                 dslr_ids = [
                     i + offset
                     for i in img_ids
-                    if imgs[i].startswith("DSC") and imgs[i] in imgs_on_disk
+                    if "DSC" in imgs[i] and imgs[i] in imgs_on_disk
                 ]
                 iphone_ids = [
                     i + offset
@@ -59,7 +59,8 @@ class ScanNetpp_Multi(BaseMultiViewDataset):
                 ]
 
                 num_imgs = len(imgs)
-                assert max(dslr_ids) < min(iphone_ids)
+                if len(dslr_ids) > 0 and len(iphone_ids) > 0:
+                    assert max(dslr_ids) < min(iphone_ids), f"Scene {scene} has interleaved dslr and iphone images."
                 assert "image_collection" in data
 
                 img_groups = []
@@ -189,3 +190,12 @@ class ScanNetpp_Multi(BaseMultiViewDataset):
             )
         assert len(views) == num_views
         return views
+
+
+if __name__ == "__main__":
+    dataset = ScanNetpp_Multi(
+        ROOT="../data/scannetpp_v2",
+        split="train",
+        num_views=4,
+        resolution=224,
+    )

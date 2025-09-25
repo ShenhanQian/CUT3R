@@ -2,6 +2,7 @@ import os.path as osp
 import os
 import sys
 import itertools
+from tqdm import tqdm
 
 sys.path.append(osp.join(osp.dirname(__file__), "..", ".."))
 import cv2
@@ -45,7 +46,7 @@ class DL3DV_Multi(BaseMultiViewDataset):
         start_img_ids = []
         j = 0
 
-        for scene_idx, scene in enumerate(subscenes):
+        for scene_idx, scene in tqdm(enumerate(subscenes), total=len(subscenes), desc="Loading DL3DV"):
             scene_dir = osp.join(self.ROOT, scene, "dense")
             rgb_paths = sorted(
                 [

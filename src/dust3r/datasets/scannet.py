@@ -37,7 +37,7 @@ class ScanNet_Multi(BaseMultiViewDataset):
         start_img_ids = []
 
         j = 0
-        for scene in tqdm(self.scenes):
+        for scene in tqdm(self.scenes, desc="Loading ScanNet"):
             scene_dir = osp.join(self.scene_root, scene)
             with np.load(
                 osp.join(scene_dir, "new_scene_metadata.npz"), allow_pickle=True

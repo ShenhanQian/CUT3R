@@ -750,7 +750,7 @@ class Regr3DPose(Criterion, MultiLoss):
                 + torch.norm(pred_quats - gt_quats, dim=-1).mean()
             )
         else:
-            if not any(masks):
+            if not masks.any():
                 return torch.tensor(0.0)
             pose_loss = (
                 torch.norm(pred_trans - gt_trans, dim=-1)[masks].mean()

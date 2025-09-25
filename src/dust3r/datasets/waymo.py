@@ -2,6 +2,7 @@ import os.path as osp
 import os
 import numpy as np
 import sys
+from tqdm import tqdm
 
 sys.path.append(osp.join(osp.dirname(__file__), "..", ".."))
 import h5py
@@ -52,7 +53,7 @@ class Waymo_Multi(BaseMultiViewDataset):
         is_video = []
         j = 0
 
-        for scene in scene_dirs:
+        for scene in tqdm(scene_dirs, desc="Loading Waymo"):
             scene_dir = osp.join(self.ROOT, scene)
             invalid_pairs = invalid_dict.get(scene, set())
             seq2frames = {}

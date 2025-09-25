@@ -5,6 +5,7 @@ import numpy as np
 import itertools
 import os
 import sys
+from tqdm import tqdm
 
 sys.path.append(osp.join(osp.dirname(__file__), "..", ".."))
 
@@ -51,7 +52,7 @@ class UnReal4K_Multi(BaseMultiViewDataset):
                 for mode in ["0", "1"]
             ]
         )
-        for seq_dir in seq_dirs:
+        for seq_dir in tqdm(seq_dirs, desc="Loading UnReal4K"):
             basenames = sorted(
                 [f[:-8] for f in os.listdir(seq_dir) if f.endswith(".png")]
             )

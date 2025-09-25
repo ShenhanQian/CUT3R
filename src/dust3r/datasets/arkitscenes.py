@@ -2,6 +2,7 @@ import os.path as osp
 import os
 import sys
 import itertools
+from tqdm import tqdm
 
 sys.path.append(osp.join(osp.dirname(__file__), "..", ".."))
 import cv2
@@ -58,19 +59,20 @@ class ARKitScenes_Multi(BaseMultiViewDataset):
     def _load_data(self, split):
         with np.load(osp.join(self.ROOT, split, "all_metadata.npz")) as data:
             self.scenes: np.ndarray = data["scenes"]
-            high_res_list = np.array(
-                [
-                    d
-                    for d in os.listdir(
-                        os.path.join(
-                            self.ROOT.rstrip("/") + "_highres",
-                            split if split == "Training" else "Validation",
+            if os.path.exists(self.ROOT.rstrip("/") + "_highres"):
+                high_res_list = np.array(
+                    [
+                        d
+                        for d in os.listdir(
+                            os.path.join(
+                                self.ROOT.rstrip("/") + "_highres",
+                                split if split == "Training" else "Validation",
+                            )
                         )
-                    )
-                    if os.path.join(self.ROOT + "_highres", split, d)
-                ]
-            )
-            self.scenes = np.setdiff1d(self.scenes, high_res_list)
+                        if os.path.join(self.ROOT + "_highres", split, d)
+                    ]
+                )
+                self.scenes = np.setdiff1d(self.scenes, high_res_list)
         offset = 0
         counts = []
         scenes = []
@@ -81,7 +83,7 @@ class ARKitScenes_Multi(BaseMultiViewDataset):
         groups = []
         id_ranges = []
         j = 0
-        for scene_idx, scene in enumerate(self.scenes):
+        for scene_idx, scene in tqdm(enumerate(self.scenes), total=len(self.scenes), desc="Loading ARKitScenes"):
             scene_dir = osp.join(self.ROOT, self.split, scene)
             with np.load(
                 osp.join(scene_dir, "new_scene_metadata.npz"), allow_pickle=True
@@ -240,3 +242,7 @@ class ARKitScenes_Multi(BaseMultiViewDataset):
             )
         assert len(views) == num_views
         return views
+
+
+if __name__ == "__main__":
+    dataset = ARKitScenes_Multi(split='train', ROOT='../data/arkitscenes/', aug_crop=16, resolution=224, num_views=4, n_corres=0)

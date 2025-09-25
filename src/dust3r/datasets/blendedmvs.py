@@ -34,7 +34,7 @@ class BlendedMVS_Multi(BaseMultiViewDataset):
         data_dict = {}
         self.all_ref_imgs = []
         with h5py.File(h5_file_path, "r") as f:
-            for scene_dir in tqdm(f.keys()):
+            for scene_dir in tqdm(f.keys(), desc="Loading BlendedMVS scenes"):
                 group = f[scene_dir]
                 basenames = group["basenames"][:]
                 indices = group["indices"][:]
@@ -303,3 +303,7 @@ class BlendedMVS_Multi(BaseMultiViewDataset):
             )
         assert len(views) == num_views
         return views
+
+
+if __name__ == "__main__":
+    dataset = BlendedMVS_Multi(split='train', ROOT='../data/blendedmvs/', aug_crop=16, resolution=224, num_views=4, n_corres=0)

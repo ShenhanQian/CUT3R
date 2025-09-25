@@ -44,7 +44,7 @@ class MapFree_Multi(BaseMultiViewDataset):
     def _load_data(self):
         cache_file = f"{self.ROOT}/cached_metadata_50_col_only.h5"
         if os.path.exists(cache_file):
-            print(f"Loading cached metadata from {cache_file}")
+            print(f"Loading MapFree cached metadata from {cache_file}")
             with h5py.File(cache_file, "r") as hf:
                 self.scenes = list(map(lambda x: x.decode("utf-8"), hf["scenes"][:]))
                 self.sceneids = hf["sceneids"][:]
@@ -72,7 +72,7 @@ class MapFree_Multi(BaseMultiViewDataset):
             j = 0
             offset = 0
 
-            for scene in tqdm(scene_dirs):
+            for scene in tqdm(scene_dirs, desc="Creating cache for MapFree"):
                 scenes.append(scene)
                 # video sequences
                 subscenes = sorted(
@@ -280,3 +280,17 @@ class MapFree_Multi(BaseMultiViewDataset):
             )
         assert len(views) == num_views
         return views
+
+
+if __name__ == "__main__":
+    dataset = MapFree_Multi(
+        ROOT="../data/mapfree",
+        resolution=224,
+        num_views=2,
+        allow_repeat=True,
+    )
+    print(len(dataset))
+    print(dataset.get_stats())
+    for i in range(10):
+        item = dataset[i]
+        print(i, len(item), item[0]["img"].shape, item[0]["depthmap"].shape)
