@@ -53,25 +53,13 @@ def process_sequence(seq_dir, out_seq_dir):
         raise FileNotFoundError(f"Missing required data in {seq_dir}")
 
     # Create output subdirectories for images, depth maps
-    out_img_dir = os.path.join(out_seq_dir, "rgb")
-    out_depth_dir = os.path.join(out_seq_dir, "depth")
+    out_anno_path = os.path.join(out_seq_dir, "anno.h5")
+    if os.path.exists(out_anno_path):
+        return
+    out_img_dir = os.path.join(out_seq_dir, "rgbs")
+    out_depth_dir = os.path.join(out_seq_dir, "depths")
     os.makedirs(out_img_dir, exist_ok=True)
     os.makedirs(out_depth_dir, exist_ok=True)
-
-    # convert anno.npz to anno.h5 for faster access of frames
-    annotations = np.load(anno_file)  # ['trajs_2d', 'trajs_3d', 'valids', 'visibs', 'intrinsics', 'extrinsics']
-    traj_path = os.path.join(out_seq_dir, "anno.h5")
-    if os.path.exists(traj_path):
-        return
-
-    data = {key: annotations[key] for key in annotations.files}
-    with h5py.File(traj_path, 'w') as h5f:
-        try:
-            for key, value in data.items():
-                h5f.create_dataset(key, data=value, compression="lzf", chunks=True)
-        except Exception as e:
-            print(f"Error saving {traj_path}: {e}")
-            return
 
     # List and sort image and depth filenames
     rgbs = sorted([f for f in os.listdir(img_dir) if f.endswith(".jpg")])
@@ -81,7 +69,7 @@ def process_sequence(seq_dir, out_seq_dir):
     if not (len(rgbs) == len(depths)):
         raise ValueError(
             f"Mismatch in sequence {seq_dir}: "
-            f"{len(rgbs)} images, {len(depths)} depths."
+            f"{len(rgbs)} images, {len(depths)} depths"
         )
 
     # Skip sequence if it has already been processed
@@ -97,19 +85,32 @@ def process_sequence(seq_dir, out_seq_dir):
             raise ValueError(
                 f"Frame index mismatch in sequence {seq_dir} for frame {i}"
             )
+        basename = basename_img
 
         img_path = os.path.join(img_dir, rgbs[i])
         depth_path = os.path.join(depth_dir, depths[i])
 
-        # Read and process depth image
-        depth_16bit = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH)
-        depth = depth_16bit.astype(np.float32) / 65535.0 * 1000.0
+        # # Read and process depth image
+        # depth_16bit = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH)
+        # depth = depth_16bit.astype(np.float32) / 65535.0 * 1000.0
 
-        # Save processed files: copy the RGB image and save depth
-        basename = basename_img  # or str(i)
+        # Save processed files: copy the RGB image and depth map
         out_img_path = os.path.join(out_img_dir, basename + ".jpg")
         shutil.copyfile(img_path, out_img_path)
-        np.save(os.path.join(out_depth_dir, basename + ".npy"), depth)
+
+        out_depth_path = os.path.join(out_depth_dir, basename + ".png")
+        shutil.copyfile(depth_path, out_depth_path)
+
+    # convert anno.npz to anno.h5 for faster access of frames
+    annotations = np.load(anno_file)  # ['trajs_2d', 'trajs_3d', 'valids', 'visibs', 'intrinsics', 'extrinsics']
+    data = {key: annotations[key] for key in annotations.files}
+    with h5py.File(out_anno_path, 'w') as h5f:
+        try:
+            for key, value in data.items():
+                h5f.create_dataset(key, data=value, compression="lzf", chunks=True)
+        except Exception as e:
+            print(f"Error saving {out_anno_path}: {e}")
+            return
 
 
 def process_split(split_dir, out_split_dir):
