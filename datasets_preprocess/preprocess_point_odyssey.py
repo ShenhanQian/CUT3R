@@ -42,46 +42,54 @@ def process_sequence(seq_dir, out_seq_dir):
     # Define input subdirectories and annotation file
     img_dir = os.path.join(seq_dir, "rgbs")
     depth_dir = os.path.join(seq_dir, "depths")
+    mask_dir = os.path.join(seq_dir, "masks")
+    normal_dir = os.path.join(seq_dir, "normals")
     anno_file = os.path.join(seq_dir, "anno.npz")
 
     # Ensure all necessary files/folders exist
     if not (
         os.path.exists(img_dir)
         and os.path.exists(depth_dir)
+        and os.path.exists(mask_dir)
+        and os.path.exists(normal_dir)
         and os.path.exists(anno_file)
     ):
         raise FileNotFoundError(f"Missing required data in {seq_dir}")
 
     # Create output subdirectories for images, depth maps
     out_anno_path = os.path.join(out_seq_dir, "anno.h5")
+    # Skip sequence if it has already been processed
     if os.path.exists(out_anno_path):
         return
     out_img_dir = os.path.join(out_seq_dir, "rgbs")
     out_depth_dir = os.path.join(out_seq_dir, "depths")
+    out_mask_dir = os.path.join(out_seq_dir, "masks")
+    out_normal_dir = os.path.join(out_seq_dir, "normals")
     os.makedirs(out_img_dir, exist_ok=True)
     os.makedirs(out_depth_dir, exist_ok=True)
+    os.makedirs(out_mask_dir, exist_ok=True)
+    os.makedirs(out_normal_dir, exist_ok=True)
 
     # List and sort image and depth filenames
     rgbs = sorted([f for f in os.listdir(img_dir) if f.endswith(".jpg")])
     depths = sorted([f for f in os.listdir(depth_dir) if f.endswith(".png")])
+    masks = sorted([f for f in os.listdir(mask_dir) if f.endswith(".png")])
+    normals = sorted([f for f in os.listdir(normal_dir) if f.endswith(".jpg")])
 
     # Ensure that the number of intrinsics, extrinsics, RGB images, and depth images match
-    if not (len(rgbs) == len(depths)):
+    if not (len(rgbs) == len(depths) == len(masks) == len(normals)):
         raise ValueError(
             f"Mismatch in sequence {seq_dir}: "
-            f"{len(rgbs)} images, {len(depths)} depths"
+            f"{len(rgbs)} images, {len(depths)} depths, {len(masks)} masks, {len(normals)} normals"
         )
-
-    # Skip sequence if it has already been processed
-    if len(os.listdir(out_img_dir)) == len(rgbs):
-        return
 
     # Process each frame in the sequence
     for i in tqdm(range(len(rgbs)), desc="Processing frames", leave=False):
         # Extract frame index from filenames
         basename_img = rgbs[i].split(".")[0].split("_")[-1]
         basename_depth = depths[i].split(".")[0].split("_")[-1]
-        if int(basename_img) != i or int(basename_depth) != i:
+        basename_mask = masks[i].split(".")[0].split("_")[-1]
+        if int(basename_img) != i or int(basename_depth) != i or int(basename_mask) != i:
             raise ValueError(
                 f"Frame index mismatch in sequence {seq_dir} for frame {i}"
             )
@@ -89,6 +97,8 @@ def process_sequence(seq_dir, out_seq_dir):
 
         img_path = os.path.join(img_dir, rgbs[i])
         depth_path = os.path.join(depth_dir, depths[i])
+        mask_path = os.path.join(mask_dir, masks[i])
+        normal_path = os.path.join(normal_dir, normals[i])
 
         # # Read and process depth image
         # depth_16bit = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH)
@@ -100,6 +110,12 @@ def process_sequence(seq_dir, out_seq_dir):
 
         out_depth_path = os.path.join(out_depth_dir, basename + ".png")
         shutil.copyfile(depth_path, out_depth_path)
+
+        out_mask_path = os.path.join(out_mask_dir, basename + ".png")
+        shutil.copyfile(mask_path, out_mask_path)
+
+        out_normal_path = os.path.join(out_normal_dir, basename + ".jpg")
+        shutil.copyfile(normal_path, out_normal_path)
 
     # convert anno.npz to anno.h5 for faster access of frames
     annotations = np.load(anno_file)  # ['trajs_2d', 'trajs_3d', 'valids', 'visibs', 'intrinsics', 'extrinsics']
